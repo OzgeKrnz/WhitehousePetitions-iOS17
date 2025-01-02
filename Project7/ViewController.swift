@@ -9,6 +9,8 @@ import UIKit
 
 class ViewController: UITableViewController {
     var petitions = [Petition]()
+    var filteredPetitions = [Petition]()
+    
     
     struct DataLoader {
         func downloadData(url: URL) async -> Data? {
@@ -26,7 +28,35 @@ class ViewController: UITableViewController {
         super.viewDidLoad()
         let urlString = "https://www.hackingwithswift.com/samples/petitions-1.json"
         downloadData(from: urlString)
+        
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Credits", style: .plain, target: self, action: #selector(alertMessage))
+        
+        
+        navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .search, target: self, action: #selector(filterPetitions))
     
+    }
+    
+    
+    @objc func alertMessage(){
+        let ac = UIAlertController(title: nil, message: "We The People API of the Whitehouse", preferredStyle: .alert)
+        
+        ac.addAction(UIAlertAction(title: "OK", style: .cancel))
+        present(ac, animated: true)
+    }
+    
+    @objc func filterPetitions(){
+        let ac = UIAlertController(title: nil, message: "Enter a petition" , preferredStyle: .alert)
+        ac.addTextField()
+        
+        let submitAction = UIAlertAction(title: "Submit", style: .default) { [weak self, weak ac ] _ in
+            guard let answer = ac?.textFields?[0].text else  {return}
+            
+            self?.applyFilter(answer)
+                
+        }
+        ac.addAction(submitAction)
+        present(ac, animated: true)
+        
     }
     
     func parse(json: Data) {
@@ -34,6 +64,7 @@ class ViewController: UITableViewController {
         
         if let jsonPetitions = try? decoder.decode(Petitions.self, from: json) {
             petitions = jsonPetitions.results
+            filteredPetitions = petitions
             DispatchQueue.main.async{
                 self.tableView.reloadData()
             }
@@ -54,22 +85,39 @@ class ViewController: UITableViewController {
         }
     }
     
+    func applyFilter(_ keyword: String){
+        let lowerAnswer = keyword.lowercased()
+        
+        filteredPetitions = petitions
+        
+        if keyword.isEmpty{
+            filteredPetitions = petitions
+        }else{
+            filteredPetitions = petitions.filter{
+                $0.title.contains(lowerAnswer) || $0.body.contains(lowerAnswer)
+            }
+        }
+        tableView.reloadData()
+    }
+    
     override func numberOfSections(in tableView: UITableView) -> Int {
         return 1
     }
+    
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-          return petitions.count // Petitions dizisinin eleman sayısını döndürüyoruz
+        print(filteredPetitions.count)
+          return filteredPetitions.count // Petitions dizisinin eleman sayısını döndürüyoruz
       }
       
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
-        let petition = petitions[indexPath.row]
+        let petition = filteredPetitions[indexPath.row]
         cell.textLabel?.text = petition.title
         cell.detailTextLabel?.text = petition.body
         return cell
     }
     
-    
+    // connect to DetailViewController to  the table view controller.
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let vc = DetailViewController()
         vc.detailItem = petitions[indexPath.row]
